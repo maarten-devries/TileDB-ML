@@ -19,6 +19,7 @@ from typing import (
 )
 
 import numpy as np
+import torch
 
 import tiledb
 
@@ -209,7 +210,12 @@ class TileDBArtifact(ABC, Generic[Artifact]):
                 f"{size_key} metadata entry not present in {self.uri}"
                 f" (existing keys: {set(model_array.meta.keys())})"
             )
-        return pickle.loads(model_array.query(attrs=(key,))[0:size][key].tobytes())
+        
+        # Adjust map_location based on CUDA availability
+        map_location = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        model_data = model_array.query(attrs=(key,))[0:size][key].tobytes()
+        return torch.load(io.BytesIO(model_data), map_location=map_location)
 
     @staticmethod
     def _serialize_tensorboard(log_dir: str) -> bytes:
